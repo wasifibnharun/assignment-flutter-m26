@@ -10,8 +10,10 @@ import '../providers/places_provider.dart';
 import '../utils/map_styles.dart';
 import '../utils/snackbars.dart';
 import '../widgets/favorite_locations_sheet.dart';
+import '../widgets/location_carousel.dart';
 import '../widgets/location_details_sheet.dart';
 import '../widgets/my_location_button.dart';
+import '../widgets/top_header.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -20,17 +22,34 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen>
+    with SingleTickerProviderStateMixin {
   static const double _defaultZoom = 13;
+  late final AnimationController _launchController;
   bool _introStarted = false;
 
   @override
   void initState() {
     super.initState();
+    _launchController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<LocationProvider>().checkPermissionSilently();
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _launchController.value = 1;
+      } else {
+        _launchController.forward();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _launchController.dispose();
+    super.dispose();
   }
 
   Future<void> _onMapCreated(GoogleMapController controller) async {
@@ -62,11 +81,18 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _onMarkerTap(FavoriteLocation place) async {
     HapticFeedback.selectionClick();
+    await _focusPlace(place, showDetails: true);
+  }
+
+  Future<void> _focusPlace(
+    FavoriteLocation place, {
+    bool showDetails = false,
+  }) async {
     context.read<PlacesProvider>().selectPlace(place.id);
     final mapProvider = context.read<MapProvider>();
     await mapProvider.animateToPlace(place);
     await mapProvider.showInfoWindow(place.id);
-    if (!mounted) return;
+    if (!mounted || !showDetails) return;
     await showLocationDetailsSheet(
       context,
       place: place,
@@ -76,6 +102,11 @@ class _MapScreenState extends State<MapScreen> {
       },
     );
   }
+
+  Future<void> _onCarouselPage(FavoriteLocation place) => _focusPlace(place);
+
+  Future<void> _onCarouselCardTap(FavoriteLocation place) =>
+      _focusPlace(place, showDetails: true);
 
   Future<void> _locateUser() async {
     final locationProvider = context.read<LocationProvider>();
@@ -183,67 +214,127 @@ class _MapScreenState extends State<MapScreen> {
     final brightness = Theme.of(context).brightness;
     final initialPosition = places.first.position;
 
+    final headerAnimation = CurvedAnimation(
+      parent: _launchController,
+      curve: const Interval(0, 0.68, curve: Curves.easeOutCubic),
+    );
+    final carouselAnimation = CurvedAnimation(
+      parent: _launchController,
+      curve: const Interval(0.22, 1, curve: Curves.easeOutCubic),
+    );
+
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: initialPosition,
-              zoom: _defaultZoom,
-            ),
-            markers: _markers(places, selectedId),
-            myLocationEnabled: myLocationEnabled,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: true,
-            compassEnabled: true,
-            padding: const EdgeInsets.fromLTRB(16, 112, 16, 216),
-            style: brightness == Brightness.dark
-                ? MapStyles.dark
-                : MapStyles.light,
-            onMapCreated: _onMapCreated,
-          ),
-          IgnorePointer(
-            child: AnimatedOpacity(
-              opacity: isMapReady ? 0 : 1,
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 300),
-              child: ColoredBox(
-                color: Theme.of(context).colorScheme.surface,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: Theme.of(context).colorScheme.primary,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final safePadding = MediaQuery.paddingOf(context);
+          final compact = constraints.maxHeight < 520;
+          final carouselHeight = compact ? 112.0 : 132.0;
+          final carouselBottom = safePadding.bottom + 8;
+          final controlsBottom = carouselBottom + carouselHeight + 12;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: initialPosition,
+                  zoom: _defaultZoom,
+                ),
+                markers: _markers(places, selectedId),
+                myLocationEnabled: myLocationEnabled,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: true,
+                compassEnabled: true,
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  safePadding.top + 104,
+                  16,
+                  controlsBottom + 62,
+                ),
+                style: brightness == Brightness.dark
+                    ? MapStyles.dark
+                    : MapStyles.light,
+                onMapCreated: _onMapCreated,
+              ),
+              IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: isMapReady ? 0 : 1,
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 300),
+                  child: ColoredBox(
+                    color: Theme.of(context).colorScheme.surface,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 224 + MediaQuery.paddingOf(context).bottom,
-            child: MyLocationButton(
-              status: locationStatus,
-              onPressed: _locateUser,
-            ),
-          ),
-          Positioned(
-            left: 16,
-            bottom: 224 + MediaQuery.paddingOf(context).bottom,
-            child: Semantics(
-              button: true,
-              label: 'Open favorite locations',
-              child: FilledButton.tonal(
-                onPressed: _showFavorites,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
+              Positioned(
+                top: safePadding.top + 8,
+                left: 16,
+                right: 16,
+                child: TopHeader(
+                  placeCount: places.length,
+                  animation: headerAnimation,
+                  onFavoritesPressed: _showFavorites,
                 ),
-                child: const Text('📍 Favorite Locations'),
               ),
-            ),
-          ),
-        ],
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: carouselBottom,
+                height: carouselHeight,
+                child: LocationCarousel(
+                  places: places,
+                  selectedId: selectedId,
+                  animation: carouselAnimation,
+                  onPageSelected: _onCarouselPage,
+                  onCardTap: _onCarouselCardTap,
+                ),
+              ),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: controlsBottom,
+                child: FadeTransition(
+                  opacity: carouselAnimation,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Flexible(
+                        child: Semantics(
+                          button: true,
+                          label: 'Open favorite locations',
+                          child: FilledButton.tonal(
+                            onPressed: _showFavorites,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(48, 48),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                              ),
+                            ),
+                            child: const Text(
+                              '📍 Favorite Locations',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      MyLocationButton(
+                        status: locationStatus,
+                        onPressed: _locateUser,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

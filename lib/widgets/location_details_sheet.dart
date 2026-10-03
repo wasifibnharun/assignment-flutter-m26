@@ -14,6 +14,12 @@ Future<void> showLocationDetailsSheet(
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
+    sheetAnimationStyle: MediaQuery.disableAnimationsOf(context)
+        ? AnimationStyle.noAnimation
+        : const AnimationStyle(
+            duration: Duration(milliseconds: 300),
+            reverseDuration: Duration(milliseconds: 200),
+          ),
     builder: (_) =>
         LocationDetailsSheet(place: place, onGoToLocation: onGoToLocation),
   );

@@ -13,6 +13,12 @@ Future<void> showFavoriteLocationsSheet(
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
+    sheetAnimationStyle: MediaQuery.disableAnimationsOf(context)
+        ? AnimationStyle.noAnimation
+        : const AnimationStyle(
+            duration: Duration(milliseconds: 300),
+            reverseDuration: Duration(milliseconds: 200),
+          ),
     builder: (_) =>
         FavoriteLocationsSheet(places: places, onSelected: onSelected),
   );

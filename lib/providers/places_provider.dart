@@ -1,5 +1,3 @@
-import 'dart:collection';
-
 import 'package:flutter/foundation.dart';
 
 import '../data/favorite_locations_data.dart';
@@ -12,8 +10,7 @@ class PlacesProvider extends ChangeNotifier {
   final List<FavoriteLocation> _places;
   int? _selectedId;
 
-  UnmodifiableListView<FavoriteLocation> get places =>
-      UnmodifiableListView(_places);
+  List<FavoriteLocation> get places => _places;
   int? get selectedId => _selectedId;
 
   FavoriteLocation? get selectedPlace {

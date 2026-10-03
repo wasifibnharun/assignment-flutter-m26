@@ -104,6 +104,7 @@ class _MapScreenState extends State<MapScreen>
     mapProvider.onMapCreated(controller);
     if (_introStarted) return;
     _introStarted = true;
+    if (_reduceMotion ?? false) return;
     final places = context.read<PlacesProvider>();
     if (places.places.isNotEmpty) {
       await mapProvider.runIntroAnimation(places.places.first);
@@ -377,21 +378,24 @@ class _MapScreenState extends State<MapScreen>
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Flexible(
-                        child: Semantics(
-                          button: true,
-                          label: 'Open favorite locations',
-                          child: FilledButton.tonal(
-                            onPressed: _showFavorites,
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(48, 48),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
+                        child: Tooltip(
+                          message: 'Show favorite locations',
+                          child: Semantics(
+                            button: true,
+                            label: 'Open favorite locations',
+                            child: FilledButton.tonal(
+                              onPressed: _showFavorites,
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(48, 48),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                ),
                               ),
-                            ),
-                            child: const Text(
-                              '📍 Favorite Locations',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              child: const Text(
+                                '📍 Favorite Locations',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
                         ),

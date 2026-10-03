@@ -49,3 +49,4 @@ app.*.map.json
 
 # Local Google Maps API keys
 /android/secrets.properties
+/ios/Flutter/Secrets.xcconfig

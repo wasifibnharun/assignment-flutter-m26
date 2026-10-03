@@ -9,6 +9,7 @@ import '../providers/map_provider.dart';
 import '../providers/places_provider.dart';
 import '../utils/map_styles.dart';
 import '../utils/snackbars.dart';
+import '../widgets/favorite_locations_sheet.dart';
 import '../widgets/location_details_sheet.dart';
 import '../widgets/my_location_button.dart';
 
@@ -147,6 +148,21 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _showFavorites() async {
+    HapticFeedback.lightImpact();
+    final placesProvider = context.read<PlacesProvider>();
+    final mapProvider = context.read<MapProvider>();
+    await showFavoriteLocationsSheet(
+      context,
+      places: placesProvider.places,
+      onSelected: (place) async {
+        placesProvider.selectPlace(place.id);
+        await mapProvider.animateToPlace(place);
+        await mapProvider.showInfoWindow(place.id);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final places = context.select<PlacesProvider, List<FavoriteLocation>>(
@@ -209,6 +225,22 @@ class _MapScreenState extends State<MapScreen> {
             child: MyLocationButton(
               status: locationStatus,
               onPressed: _locateUser,
+            ),
+          ),
+          Positioned(
+            left: 16,
+            bottom: 224 + MediaQuery.paddingOf(context).bottom,
+            child: Semantics(
+              button: true,
+              label: 'Open favorite locations',
+              child: FilledButton.tonal(
+                onPressed: _showFavorites,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                ),
+                child: const Text('📍 Favorite Locations'),
+              ),
             ),
           ),
         ],

@@ -8,7 +8,9 @@ import '../providers/location_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/places_provider.dart';
 import '../utils/map_styles.dart';
+import '../utils/snackbars.dart';
 import '../widgets/location_details_sheet.dart';
+import '../widgets/my_location_button.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -74,6 +76,77 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  Future<void> _locateUser() async {
+    final locationProvider = context.read<LocationProvider>();
+    final mapProvider = context.read<MapProvider>();
+    final status = await locationProvider.locateUser();
+    if (!mounted) return;
+
+    switch (status) {
+      case LocationStatus.success:
+        final position = locationProvider.userPosition;
+        if (position != null) {
+          await mapProvider.animateToLatLng(position);
+        }
+      case LocationStatus.serviceDisabled:
+        AppSnackbars.show(
+          context,
+          icon: Icons.location_off_rounded,
+          message: 'Turn on location services to find your position.',
+          actionLabel: 'SETTINGS',
+          onAction: locationProvider.openLocationSettings,
+        );
+      case LocationStatus.permissionDenied:
+        AppSnackbars.show(
+          context,
+          icon: Icons.location_disabled_rounded,
+          message: 'Location access is needed to show you on the map.',
+          actionLabel: 'TRY AGAIN',
+          onAction: _locateUser,
+        );
+      case LocationStatus.permissionDeniedForever:
+        final openSettings = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            icon: const Icon(Icons.settings_rounded),
+            title: const Text('Location permission blocked'),
+            content: const Text(
+              'Enable location access for FavMap in your device settings.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Not now'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Open App Settings'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        if (openSettings ?? false) {
+          await locationProvider.openAppSettings();
+        }
+      case LocationStatus.timeout:
+        AppSnackbars.show(
+          context,
+          icon: Icons.timer_off_rounded,
+          message: 'Finding your location took too long. Please try again.',
+        );
+      case LocationStatus.error:
+        AppSnackbars.show(
+          context,
+          icon: Icons.error_outline_rounded,
+          message: 'Your location could not be found right now.',
+        );
+      case LocationStatus.idle:
+      case LocationStatus.loading:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final places = context.select<PlacesProvider, List<FavoriteLocation>>(
@@ -87,6 +160,9 @@ class _MapScreenState extends State<MapScreen> {
     );
     final isMapReady = context.select<MapProvider, bool>(
       (provider) => provider.isMapReady,
+    );
+    final locationStatus = context.select<LocationProvider, LocationStatus>(
+      (provider) => provider.status,
     );
     final brightness = Theme.of(context).brightness;
     final initialPosition = places.first.position;
@@ -125,6 +201,14 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
               ),
+            ),
+          ),
+          Positioned(
+            right: 16,
+            bottom: 224 + MediaQuery.paddingOf(context).bottom,
+            child: MyLocationButton(
+              status: locationStatus,
+              onPressed: _locateUser,
             ),
           ),
         ],

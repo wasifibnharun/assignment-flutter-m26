@@ -8,6 +8,7 @@ import '../providers/location_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/places_provider.dart';
 import '../utils/map_styles.dart';
+import '../widgets/location_details_sheet.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -62,6 +63,15 @@ class _MapScreenState extends State<MapScreen> {
     final mapProvider = context.read<MapProvider>();
     await mapProvider.animateToPlace(place);
     await mapProvider.showInfoWindow(place.id);
+    if (!mounted) return;
+    await showLocationDetailsSheet(
+      context,
+      place: place,
+      onGoToLocation: () async {
+        await mapProvider.animateToPlace(place);
+        await mapProvider.showInfoWindow(place.id);
+      },
+    );
   }
 
   @override

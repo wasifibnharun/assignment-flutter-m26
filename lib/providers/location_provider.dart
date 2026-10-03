@@ -44,7 +44,8 @@ class LocationProvider extends ChangeNotifier {
       if (permission == LocationPermission.deniedForever) {
         return _finish(LocationStatus.permissionDeniedForever);
       }
-      if (permission == LocationPermission.denied) {
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
         return _finish(LocationStatus.permissionDenied);
       }
 

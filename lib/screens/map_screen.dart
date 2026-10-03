@@ -23,32 +23,79 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   static const double _defaultZoom = 13;
   late final AnimationController _launchController;
+  late final AnimationController _pulseController;
+  Duration? _lastPulseFrame;
+  double _pulseValue = 0;
+  bool? _reduceMotion;
   bool _introStarted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _launchController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 450),
     );
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    )..addListener(_onPulseTick);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<LocationProvider>().checkPermissionSilently();
-      if (MediaQuery.disableAnimationsOf(context)) {
-        _launchController.value = 1;
-      } else {
-        _launchController.forward();
-      }
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (_reduceMotion == reduceMotion) return;
+    _reduceMotion = reduceMotion;
+    if (reduceMotion) {
+      _launchController.value = 1;
+      _pulseController.stop();
+      _pulseValue = 0;
+    } else {
+      if (!_launchController.isCompleted) _launchController.forward();
+      if (!_pulseController.isAnimating) _pulseController.repeat();
+    }
+  }
+
+  void _onPulseTick() {
+    final elapsed = _pulseController.lastElapsedDuration;
+    if (elapsed == null) return;
+    final shouldDraw =
+        _lastPulseFrame == null ||
+        elapsed - _lastPulseFrame! >= const Duration(milliseconds: 33);
+    if (!shouldDraw || !mounted) return;
+    _lastPulseFrame = elapsed;
+    setState(() => _pulseValue = _pulseController.value);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (!(_reduceMotion ?? false) && !_pulseController.isAnimating) {
+        _lastPulseFrame = null;
+        _pulseController.repeat();
+      }
+    } else {
+      _pulseController.stop();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _launchController.dispose();
+    _pulseController
+      ..removeListener(_onPulseTick)
+      ..dispose();
     super.dispose();
   }
 
@@ -77,6 +124,27 @@ class _MapScreenState extends State<MapScreen>
         onTap: () => _onMarkerTap(place),
       );
     }).toSet();
+  }
+
+  Set<Circle> _selectionCircles(
+    List<FavoriteLocation> places,
+    int? selectedId,
+    Color color,
+  ) {
+    final index = places.indexWhere((place) => place.id == selectedId);
+    if (index < 0) return const <Circle>{};
+    final pulse = Curves.easeOutCubic.transform(_pulseValue);
+    return {
+      Circle(
+        circleId: CircleId('selected-$selectedId'),
+        center: places[index].position,
+        radius: 42 + 28 * pulse,
+        fillColor: color.withValues(alpha: 0.14 * (1 - pulse)),
+        strokeColor: color.withValues(alpha: 0.62 * (1 - pulse)),
+        strokeWidth: 2,
+        zIndex: 1,
+      ),
+    };
   }
 
   Future<void> _onMarkerTap(FavoriteLocation place) async {
@@ -240,6 +308,11 @@ class _MapScreenState extends State<MapScreen>
                   zoom: _defaultZoom,
                 ),
                 markers: _markers(places, selectedId),
+                circles: _selectionCircles(
+                  places,
+                  selectedId,
+                  Theme.of(context).colorScheme.primary,
+                ),
                 myLocationEnabled: myLocationEnabled,
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: true,

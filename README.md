@@ -230,16 +230,6 @@ The screenshots must be captured from a running device or emulator after install
 
 ![Favorite locations list](docs/screenshots/05-favorite-locations-list.png)
 
-Capture them in this order:
-
-1. Launch the app and wait for the styled Google Map to finish loading; save `01-google-map.png`.
-2. Press **My Location**, grant permission, and wait for the blue dot and camera movement; save `02-current-location.png`.
-3. Adjust the camera so at least three favorite markers are clearly visible; save `03-favorite-markers.png`.
-4. Tap a marker and keep its details sheet open; save `04-location-details.png`.
-5. Close the details sheet, press **📍 Favorite Locations**, and save `05-favorite-locations-list.png`.
-
-Before submitting, confirm that at least the first four image files exist, are visible in this README on GitHub, and do not expose an API key or other sensitive information. The fifth screenshot is included to demonstrate the favorite-list requirement clearly.
-
 ## Evaluation checklist
 
 - [x] Google Map loads at application startup.

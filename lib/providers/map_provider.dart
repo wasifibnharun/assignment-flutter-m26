@@ -4,6 +4,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/favorite_location.dart';
 
 class MapProvider extends ChangeNotifier {
+  static const Duration _controllerActionTimeout = Duration(seconds: 1);
+
   GoogleMapController? _controller;
   bool _isMapReady = false;
 
@@ -22,13 +24,16 @@ class MapProvider extends ChangeNotifier {
       animateToLatLng(place.position, zoom: zoom);
 
   Future<void> animateToLatLng(LatLng position, {double zoom = 16}) async {
-    await _controller?.animateCamera(
-      CameraUpdate.newLatLngZoom(position, zoom),
+    await _runControllerAction(
+      (controller) =>
+          controller.animateCamera(CameraUpdate.newLatLngZoom(position, zoom)),
     );
   }
 
   Future<void> showInfoWindow(int id) async {
-    await _controller?.showMarkerInfoWindow(MarkerId(id.toString()));
+    await _runControllerAction(
+      (controller) => controller.showMarkerInfoWindow(MarkerId(id.toString())),
+    );
   }
 
   Future<void> runIntroAnimation(FavoriteLocation place) async {
@@ -36,10 +41,28 @@ class MapProvider extends ChangeNotifier {
     if (controller == null) {
       return;
     }
-    await controller.moveCamera(CameraUpdate.newLatLngZoom(place.position, 12));
-    await controller.animateCamera(
-      CameraUpdate.newLatLngZoom(place.position, 15),
+    await _runControllerAction(
+      (activeController) => activeController.moveCamera(
+        CameraUpdate.newLatLngZoom(place.position, 12),
+      ),
     );
+    await _runControllerAction(
+      (activeController) => activeController.animateCamera(
+        CameraUpdate.newLatLngZoom(place.position, 15),
+      ),
+    );
+  }
+
+  Future<void> _runControllerAction(
+    Future<void> Function(GoogleMapController controller) action,
+  ) async {
+    final controller = _controller;
+    if (controller == null) return;
+    try {
+      await action(controller).timeout(_controllerActionTimeout);
+    } catch (_) {
+      // Platform-view callbacks can be dropped on slow or interrupted devices.
+    }
   }
 
   @override
